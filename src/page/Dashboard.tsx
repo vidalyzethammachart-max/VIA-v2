@@ -17,6 +17,7 @@ type RubricData = {
 
 type EvaluationRow = {
   id: number;
+  user_id: string | null;
   rubric: RubricData;
   created_at: string;
 };
@@ -143,7 +144,10 @@ export default function Dashboard() {
       }
 
       const { data, error } = await withTimeout(
-        supabase.from("evaluations").select("id, rubric, created_at"),
+        supabase
+          .from("evaluations")
+          .select("id, user_id, rubric, created_at")
+          .order("created_at", { ascending: false }),
         DASHBOARD_QUERY_TIMEOUT_MS,
         "Loading dashboard evaluations",
       );
