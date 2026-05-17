@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import ConfirmModal from "../components/ConfirmModal";
 import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
@@ -20,6 +21,15 @@ type EvaluationItem = {
   created_at: string;
 };
 
+type LegacyEvaluationItem = {
+  id: number;
+  user_id: string | null;
+  order_number: string | null;
+  subject_name: string | null;
+  overall_suggestion: string | null;
+  created_at: string;
+};
+
 export default function MyFormsDashboard() {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
@@ -27,6 +37,8 @@ export default function MyFormsDashboard() {
   const [items, setItems] = useState<EvaluationItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeDownloadKey, setActiveDownloadKey] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EvaluationItem | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | EvaluationItem["document_status"]>("all");
 
@@ -59,15 +71,44 @@ export default function MyFormsDashboard() {
 
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, user_id, order_number, subject_name, overall_suggestion, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, user_id, order_number, subject_name, overall_suggestion, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
-        throw error;
+        console.warn("Full my forms query failed, falling back to legacy columns:", error);
+
+        const { data: legacyData, error: legacyError } = await supabase
+          .from("evaluations")
+          .select("id, user_id, order_number, subject_name, overall_suggestion, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (legacyError) {
+          throw legacyError;
+        }
+
+        setItems(
+          ((legacyData ?? []) as LegacyEvaluationItem[]).map((item) => ({
+            ...item,
+            google_doc_id: null,
+            source_doc_id: null,
+            pdf_storage_path: null,
+            docx_storage_path: null,
+            document_status: "pending",
+            document_error: null,
+          })),
+        );
+        return;
       }
 
-      setItems((data ?? []) as EvaluationItem[]);
+      setItems(
+        ((data ?? []) as Omit<EvaluationItem, "google_doc_id" | "source_doc_id">[]).map((item) => ({
+          ...item,
+          google_doc_id: null,
+          source_doc_id: null,
+        })),
+      );
     } catch (error) {
       console.error("Failed to load my forms:", error);
       setErrorMessage(error instanceof Error ? error.message : t("myForms.loadFailed"));
@@ -106,6 +147,45 @@ export default function MyFormsDashboard() {
       setErrorMessage(error instanceof Error ? error.message : t("myForms.downloadFailed", { format: format.toUpperCase() }));
     } finally {
       setActiveDownloadKey(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    try {
+      setDeletingId(deleteTarget.id);
+      setErrorMessage(null);
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("evaluations")
+        .delete()
+        .eq("id", deleteTarget.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setItems((currentItems) => currentItems.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Failed to delete form:", error);
+      setErrorMessage(error instanceof Error ? error.message : t("myForms.deleteFailed"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -285,6 +365,14 @@ export default function MyFormsDashboard() {
                         {t("myForms.trackStatus")}
                       </Link>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(item)}
+                      disabled={deletingId === item.id}
+                      className="btn-danger text-center"
+                    >
+                      {t("myForms.delete")}
+                    </button>
                   </div>
                 </article>
               ))}
@@ -292,6 +380,22 @@ export default function MyFormsDashboard() {
           )}
         </section>
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title={t("myForms.deleteTitle")}
+        message={t("myForms.deleteMessage", {
+          label: deleteTarget?.subject_name || deleteTarget?.order_number || t("myForms.untitled"),
+        })}
+        confirmLabel={t("myForms.confirmDelete")}
+        confirmDisabled={Boolean(deleteTarget && deletingId === deleteTarget.id)}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          if (!deletingId) {
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

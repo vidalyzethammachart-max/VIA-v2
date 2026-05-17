@@ -15,6 +15,19 @@ import {
   type Rubric,
 } from "../services/evaluationService";
 
+type SubmissionProgress = {
+  percent: number;
+  label: string;
+};
+
+function createSubmissionId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function FormSubmit() {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
@@ -36,6 +49,7 @@ function FormSubmit() {
   const [roleRequestMessage, setRoleRequestMessage] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [submissionProgress, setSubmissionProgress] = useState<SubmissionProgress | null>(null);
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data: { user } }) => {
@@ -157,30 +171,57 @@ function FormSubmit() {
     }
 
     setSubmitErrorMessage(validateForm());
-  }, [authUserId, orderNumber, subjectName, answers, comment, showValidation, language]);
+  }, [
+    authUserId,
+    orderNumber,
+    subjectName,
+    answers,
+    comment,
+    showValidation,
+    language,
+  ]);
 
   const submitForm = async () => {
     setSubmitErrorMessage(null);
+    setSubmissionProgress({
+      percent: 5,
+      label: t("form.progressPreparing"),
+    });
 
     setIsSaving(true);
 
     const payload = buildPayload();
     if (!payload) {
       setSubmitErrorMessage(t("form.sessionNotReady"));
+      setSubmissionProgress(null);
       setIsSaving(false);
       return;
     }
 
     try {
+      const submissionId = createSubmissionId();
+
+      setSubmissionProgress({
+        percent: 35,
+        label: t("form.progressSending"),
+      });
+
       const result = await submitEvaluation(payload);
+
+      setSubmissionProgress({
+        percent: 95,
+        label: t("form.progressProcessing"),
+      });
+
       resetForm();
       navigate("/my-forms", {
         replace: true,
-        state: { generated: true, evaluationId: result.id },
+        state: { generated: true, evaluationId: result.id, submissionId },
       });
     } catch (error) {
       console.error("Error while saving:", error);
       setSubmitErrorMessage(error instanceof Error ? error.message : t("form.submitFailed"));
+      setSubmissionProgress(null);
     } finally {
       setIsSaving(false);
     }
@@ -389,6 +430,29 @@ function FormSubmit() {
                   {submitErrorMessage}
                 </div>
               )}
+            {isSaving && submissionProgress && (
+              <div className="mb-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-800">{submissionProgress.label}</span>
+                  <span className="tabular-nums font-semibold text-primary">
+                    {submissionProgress.percent}%
+                  </span>
+                </div>
+                <div
+                  className="h-3 overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={submissionProgress.percent}
+                  aria-label={submissionProgress.label}
+                >
+                  <div
+                    className="h-full rounded-full bg-primary motion-safe:transition-all motion-safe:duration-300"
+                    style={{ width: `${submissionProgress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex justify-center">
               <button
                 type="submit"

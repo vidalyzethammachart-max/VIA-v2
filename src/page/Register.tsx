@@ -21,14 +21,14 @@ function RegisterWrapper({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f7f9fb] dark:bg-slate-950">
+    <div className="relative flex min-h-screen items-center justify-center overflow-y-auto bg-[#f7f9fb] px-3 pb-4 pt-20 dark:bg-slate-950 sm:px-4 sm:py-6">
       <AuthPageControls />
-      <div className="relative z-10 flex w-full max-w-md items-center justify-center rounded-2xl border-4 border-[#eaeef2] bg-white px-4 py-12 dark:border-slate-800 dark:bg-slate-900">
-        <div className="relative z-10 w-full max-w-md rounded-2xl p-8 backdrop-blur-lg">
-          <div className="flex justify-center p-2">
-            <img src={Logo} alt="Logo" className="h-auto w-100" />
+      <div className="relative z-10 flex w-full max-w-md items-center justify-center rounded-2xl border-2 border-[#eaeef2] bg-white px-3 py-6 dark:border-slate-800 dark:bg-slate-900 sm:border-4 sm:px-4 sm:py-10">
+        <div className="relative z-10 w-full rounded-2xl px-4 py-5 sm:p-8">
+          <div className="flex justify-center p-1 sm:p-2">
+            <img src={Logo} alt="Logo" className="h-auto w-full max-w-[260px] sm:max-w-[340px]" />
           </div>
-          <h2 className="mb-6 text-center text-2xl font-bold text-black dark:text-white">
+          <h2 className="mb-5 text-center text-xl font-bold text-black dark:text-white sm:mb-6 sm:text-2xl">
             {t("auth.loginTitle")}
           </h2>
           {children}
@@ -278,6 +278,8 @@ export default function Register() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              title={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
               tabIndex={-1}
             >
@@ -318,6 +320,8 @@ export default function Register() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              title={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
               tabIndex={-1}
             >

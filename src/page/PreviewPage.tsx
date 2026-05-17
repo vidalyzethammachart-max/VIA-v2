@@ -5,6 +5,8 @@ import MainNavbar from "../components/MainNavbar";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
 
+const DOCUMENTS_BUCKET = "evaluation-documents";
+
 type PreviewRecord = {
   id: number;
   subject_name: string | null;
@@ -23,6 +25,39 @@ type ArtifactUrls = {
   pdfUrl: string | null;
   docxUrl: string | null;
 };
+
+async function createStorageArtifactUrls(record: PreviewRecord): Promise<ArtifactUrls | null> {
+  if (!record.pdf_storage_path && !record.docx_storage_path) {
+    return null;
+  }
+
+  const [pdfSigned, docxSigned] = await Promise.all([
+    record.pdf_storage_path
+      ? supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(record.pdf_storage_path, 60 * 60)
+      : Promise.resolve({ data: null, error: null }),
+    record.docx_storage_path
+      ? supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(record.docx_storage_path, 60 * 60)
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (pdfSigned.error || docxSigned.error) {
+    return null;
+  }
+
+  const pdfUrl = pdfSigned.data?.signedUrl ?? null;
+  const docxUrl = docxSigned.data?.signedUrl ?? null;
+
+  if (!pdfUrl && !docxUrl) {
+    return null;
+  }
+
+  return {
+    source: "storage",
+    previewUrl: pdfUrl,
+    pdfUrl,
+    docxUrl,
+  };
+}
 
 export default function PreviewPage() {
   const location = useLocation();
@@ -45,7 +80,7 @@ export default function PreviewPage() {
 
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, subject_name, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, subject_name, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("id", evaluationId)
         .maybeSingle();
 
@@ -61,7 +96,11 @@ export default function PreviewPage() {
         return;
       }
 
-      setRecord(data as PreviewRecord);
+      setRecord({
+        ...(data as Omit<PreviewRecord, "google_doc_id" | "source_doc_id">),
+        google_doc_id: null,
+        source_doc_id: null,
+      });
       setLoading(false);
     };
 
@@ -76,12 +115,16 @@ export default function PreviewPage() {
     const intervalId = window.setInterval(async () => {
       const { data, error } = await supabase
         .from("evaluations")
-        .select("id, subject_name, google_doc_id, source_doc_id, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
+        .select("id, subject_name, pdf_storage_path, docx_storage_path, document_status, document_error, created_at")
         .eq("id", evaluationId)
         .maybeSingle();
 
       if (!error && data) {
-        setRecord(data as PreviewRecord);
+        setRecord({
+          ...(data as Omit<PreviewRecord, "google_doc_id" | "source_doc_id">),
+          google_doc_id: null,
+          source_doc_id: null,
+        });
       }
     }, 5000);
 
@@ -92,12 +135,24 @@ export default function PreviewPage() {
 
   useEffect(() => {
     const loadArtifactUrls = async () => {
-      if (!record || record.document_status !== "ready") {
+      if (
+        !record ||
+        record.document_status !== "ready" ||
+        (!record.pdf_storage_path && !record.docx_storage_path && !record.google_doc_id)
+      ) {
         setArtifactUrls(null);
         return;
       }
 
       setArtifactLoading(true);
+      setErrorMessage(null);
+
+      const storageUrls = await createStorageArtifactUrls(record);
+      if (storageUrls) {
+        setArtifactUrls(storageUrls);
+        setArtifactLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke<{
         ok: boolean;
@@ -112,7 +167,7 @@ export default function PreviewPage() {
 
       if (error || !data?.ok) {
         setArtifactUrls(null);
-        setErrorMessage(data?.error || error?.message || t("preview.resolveFailed"));
+        console.warn("Unable to resolve document artifact URL:", data?.error || error?.message);
         setArtifactLoading(false);
         return;
       }
