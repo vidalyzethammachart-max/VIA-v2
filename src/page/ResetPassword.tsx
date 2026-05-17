@@ -406,6 +406,8 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
                   tabIndex={-1}
                 >
@@ -454,6 +456,8 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
                   tabIndex={-1}
                 >
