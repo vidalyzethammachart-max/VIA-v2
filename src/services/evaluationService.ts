@@ -38,6 +38,21 @@ export type EvaluationSubmissionResult = {
   document_error: string | null;
 };
 
+function formatPostgrestError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return String(error);
+  }
+
+  const code = Reflect.get(error, "code");
+  const message = Reflect.get(error, "message");
+  const details = Reflect.get(error, "details");
+  const hint = Reflect.get(error, "hint");
+
+  return [code, message, details, hint]
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .join(" | ");
+}
+
 async function getErrorMessage(error: unknown): Promise<string> {
   const context = typeof error === "object" && error !== null
     ? Reflect.get(error, "context")
@@ -95,17 +110,20 @@ export async function submitEvaluation(
           subject_name: payload.subject_name,
           overall_suggestion: payload.overall_suggestion ?? null,
           rubric: payload.rubric,
-          google_doc_id: null,
-          document_status: "pending",
-          document_error: null,
         },
       ])
-      .select("id, google_doc_id, document_status, document_error")
+      .select("id")
       .single();
 
     if (error) {
-      console.error("Supabase insert error:", error);
-      throw error;
+      const message = formatPostgrestError(error);
+      console.error("Supabase insert error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(message || "Failed to save evaluation.");
     }
 
     void accountingService
