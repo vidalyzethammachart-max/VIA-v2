@@ -29,11 +29,11 @@ export const translations: Record<Locale, Dictionary> = {
     "common.failed": "ล้มเหลว",
 
     "navbar.brand": "Video Intelligence & Analytics",
-    "navbar.title": "ระบบวิเคราะห์และประเมินคุณภาพวิดีโอการสอนอัจฉริยะ",
+    "navbar.title": "วิเคราะห์และประเมินคุณภาพวิดีโอการสอนอัจฉริยะ",
     "navbar.subtitle": "ระบบประเมินคุณภาพสื่อดิจิทัลด้านเทคนิคเพื่อการศึกษา",
 
     "footer.title": "VIA : Video Intelligence & Analytics",
-    "footer.desc1": "ระบบวิเคราะห์และประเมินคุณภาพวิดีโอการสอนอัจฉริยะ",
+    "footer.desc1": "วิเคราะห์และประเมินคุณภาพวิดีโอการสอนอัจฉริยะ",
     "footer.desc2": "ระบบประเมินคุณภาพสื่อดิจิทัลด้านเทคนิคเพื่อการศึกษา",
     "footer.contact": "ติดต่อเรา",
     "footer.organization": "วิทยาลัยนานาชาติ มหาวิทยาลัยมหิดล (MUIC)",
